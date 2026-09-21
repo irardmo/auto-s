@@ -1,0 +1,279 @@
+/* Custom SIBT Styling - SIBT Royal Blue & Golden Yellow Theme */
+
+:root {
+  --sibt-blue: #0d3b66;
+  --sibt-blue-dark: #092847;
+  --sibt-blue-light: #1d4ed8;
+  --sibt-yellow: #f4d35e;
+  --sibt-yellow-dark: #e0a96d;
+  --sibt-gold: #f59e0b;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #f4f6f9;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header & Navbar SIBT Theme */
+.navbar-sibt {
+  background-color: var(--sibt-blue) !important;
+  border-bottom: 4px solid var(--sibt-yellow);
+}
+
+.navbar-sibt .navbar-brand {
+  color: #ffffff !important;
+}
+
+.navbar-sibt .navbar-brand i {
+  color: var(--sibt-yellow) !important;
+}
+
+.navbar-sibt .nav-link {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+.navbar-sibt .nav-link:hover {
+  color: var(--sibt-yellow) !important;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.navbar-sibt .nav-link.active {
+  color: #ffffff !important;
+  background-color: rgba(244, 211, 94, 0.25) !important;
+  border-bottom: 3px solid var(--sibt-yellow);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sibt-blue);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sibt-blue-dark);
+}
+
+/* Custom styles for tables and forms */
+.fs-7 {
+  font-size: 0.8rem;
+}
+
+.table > thead {
+  background-color: #0d3b66 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.table > thead th {
+  background-color: #0d3b66 !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid var(--sibt-yellow) !important;
+}
+
+.bg-light-blue {
+  background-color: #f0f4f8;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+/* Primary Button Override to SIBT Blue & Gold */
+.btn-primary {
+  background-color: var(--sibt-blue) !important;
+  border-color: var(--sibt-blue) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--sibt-blue-dark) !important;
+  border-color: var(--sibt-blue-dark) !important;
+}
+
+.btn-warning, .btn-outline-warning {
+  background-color: var(--sibt-yellow) !important;
+  border-color: var(--sibt-gold) !important;
+  color: #092847 !important;
+  font-weight: 600;
+}
+
+/* Active sub-tab styling */
+.list-group-item.active {
+  background-color: var(--sibt-blue) !important;
+  border-color: var(--sibt-blue) !important;
+  color: #ffffff !important;
+  border-left: 5px solid var(--sibt-yellow) !important;
+}
+
+/* Pagination SIBT Theme */
+.pagination .page-item.active .page-link {
+  background-color: var(--sibt-blue) !important;
+  border-color: var(--sibt-blue) !important;
+  color: var(--sibt-yellow) !important;
+  font-weight: 700;
+}
+
+.pagination .page-link {
+  color: var(--sibt-blue);
+  font-weight: 600;
+}
+
+.pagination .page-link:hover {
+  background-color: rgba(244, 211, 94, 0.2);
+  color: var(--sibt-blue-dark);
+}
+
+/* Conflict styling on live monitor */
+.conflict-card {
+  border-left: 5px solid #dc3545 !important;
+  background-color: #fff8f8;
+}
+
+.conflict-warning {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+/* PRINT MEDIA RULES - Ensures High Fidelity print output matched to the images */
+@media print {
+  body {
+    background-color: #fff !important;
+    color: #000 !important;
+    font-size: 11pt !important;
+  }
+  
+  /* Hide standard screen elements completely during printing */
+  .no-print, 
+  nav, 
+  footer, 
+  .toast-container,
+  #statsRow, 
+  #filterForm, 
+  .card-header,
+  #globalAlerts,
+  .btn,
+  .tab-panel:not(#panel-print),
+  .navbar,
+  .container-fluid > *:not(#panel-print) {
+    display: none !important;
+  }
+
+  /* Make sure panel-print occupies full page */
+  #panel-print,
+  #panel-print * {
+    display: block !important;
+  }
+
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+    background: none !important;
+  }
+
+  .card-body {
+    padding: 0 !important;
+  }
+
+  #printout-container {
+    width: 100% !important;
+    min-height: auto !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  table, th, td {
+    border: 1.5px solid #000 !important;
+    color: #000 !important;
+  }
+
+  th {
+    background-color: #f2f2f2 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Force exact print background colors if supported */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Styling specifically for the printout form preview on screen */
+#printout-container {
+  border: 1px solid #dee2e6;
+}
+
+/* Header, lines, and form parameters in official assignment document */
+.official-title {
+  font-family: "Georgia", "Times New Roman", serif;
+  font-weight: 800;
+  color: #000;
+  text-transform: uppercase;
+}
+
+.official-table th {
+  background-color: #f8f9fa;
+  color: #000;
+  text-align: center;
+  font-size: 0.85rem;
+  border: 1px solid #000;
+  vertical-align: middle;
+}
+
+.official-table td {
+  border: 1px solid #000;
+  font-size: 0.85rem;
+  vertical-align: middle;
+  padding: 6px;
+  color: #000;
+}
+
+.official-summary-table td {
+  border: 1px solid #000;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+}
+
+/* Helper spacing */
+.line-height-1 {
+  line-height: 1.2;
+}
+
+/* Inline Editable Fields in Manage Data */
+.editable-field {
+  transition: all 0.2s ease-in-out;
+  border-radius: 4px;
+}
+
+.editable-field:hover {
+  background-color: rgba(13, 110, 253, 0.05) !important;
+  border: 1px solid #ced4da !important;
+  cursor: pointer;
+}
+
+.editable-field:focus {
+  background-color: #ffffff !important;
+  border: 1px solid #0d6efd !important;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+  outline: none;
+}
