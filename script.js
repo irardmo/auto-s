@@ -13505,12 +13505,21 @@ function autoSaveSchedule(id, field, value) {
   const sch = db.schedules.find(s => s.id === id);
   if (!sch) return;
 
+  const previousValue = sch[field];
   sch[field] = value;
 
   // Run validation check
   const validation = validateSchedule(sch);
   if (!validation.valid) {
-    showToast(`Warning: Schedule conflict detected: ${validation.errors.join(', ')}`, "warning");
+    // Revert change on conflict
+    sch[field] = previousValue;
+    showToast(`Cannot save edit due to conflict: ${validation.errors[0]}`, "danger");
+    renderSchedulesTable();
+    return;
+  }
+
+  if (validation.warnings && validation.warnings.length > 0) {
+    showToast(validation.warnings[0], "warning");
   } else {
     showToast("Schedule updated successfully!", "info");
   }
@@ -15262,16 +15271,6 @@ async function runPerSectionScheduler() {
     return;
   }
 
-  // Validate that all subjects have an assigned instructor selected
-  let missingInstructor = false;
-  selects.forEach(sel => {
-    if (!sel.value) missingInstructor = true;
-  });
-
-  if (missingInstructor) {
-    showToast("Please select an instructor for all subjects in the section before generating!", "danger");
-    return;
-  }
 
   const logContainer = document.getElementById('autoSchedulerResults');
   const consoleEl = document.getElementById('schedulerConsole');
@@ -15311,13 +15310,8 @@ async function runPerSectionScheduler() {
       const teacherObj = db.instructors.find(t => t.id === assignedTeacherId);
       if (teacherObj) teachersToTry = [teacherObj];
     } else {
-      teachersToTry = [...db.instructors];
-    }
-
-    if (teachersToTry.length === 0) {
-      consoleEl.innerHTML += `<span class="text-danger">✖ Failed:</span> No instructors available for ${sub.title_and_code}.<br>`;
-      unscheduledCount++;
-      continue;
+      // If unassigned / blank (e.g., applicant teacher or TBA), treat as unassigned teacher (null)
+      teachersToTry = [{ id: null, name: "Unassigned / TBA", designation: "Full-time", max_units: 99 }];
     }
 
     const sectionInfo = getSectionScheduleInfo(course, year, block);
@@ -15418,7 +15412,8 @@ async function runPerSectionScheduler() {
             db.schedules.push(newSch);
             scheduledCount++;
             scheduled = true;
-            consoleEl.innerHTML += `<span class="text-success">✔ Scheduled:</span> ${sub.title_and_code} (${sub.course} ${year}${block}) with ${teacher.name} in ${availableRoom.name} [${day} ${slot.start}-${slot.end}]<br>`;
+            const teacherName = teacher.id ? teacher.name : "Unassigned / TBA";
+            consoleEl.innerHTML += `<span class="text-success">✔ Scheduled:</span> ${sub.title_and_code} (${sub.course} ${year}${block}) with ${teacherName} in ${availableRoom.name} [${day} ${slot.start}-${slot.end}]<br>`;
             break teacherLoop;
           }
         }
