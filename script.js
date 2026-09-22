@@ -12542,6 +12542,116 @@ function daysOverlap(day1, day2) {
   return days1.some(d => days2.includes(d));
 }
 
+// Section Day/Room Compression Optimization Helpers
+function getSectionScheduleInfo(course, yearLevel, blockSection) {
+  const activeSingleDays = new Set();
+  const activeRoomsByDay = {};
+  const maxEndTimeByDay = {};
+  const minStartTimeByDay = {};
+
+  const normCourse = (course || '').trim().toUpperCase();
+  const normYear = parseInt(yearLevel, 10) || 0;
+  const normBlock = (blockSection || '').trim().toUpperCase();
+
+  db.schedules.forEach(sch => {
+    const sub = db.subjects.find(s => s.id === sch.subject_id);
+    const schCourse = ((sch.course || (sub ? sub.course : '')) || '').trim().toUpperCase();
+    const schYear = parseInt(sch.year_level || (sub ? sub.year_level : 0), 10);
+    const schBlock = ((sch.block_section || (sub ? sub.block_section : '')) || '').trim().toUpperCase();
+
+    const isMatch = (schCourse === normCourse && schYear === normYear) &&
+      (schBlock === normBlock || schBlock.endsWith(normBlock) || normBlock.endsWith(schBlock));
+
+    if (isMatch) {
+      const cDays = getConstituentDays(sch.day);
+      const startMins = parseTimeToMinutes(sch.time_start);
+      const endMins = parseTimeToMinutes(sch.time_end);
+
+      cDays.forEach(d => {
+        activeSingleDays.add(d);
+
+        if (!activeRoomsByDay[d]) activeRoomsByDay[d] = new Set();
+        if (sch.room_id) activeRoomsByDay[d].add(sch.room_id);
+
+        if (maxEndTimeByDay[d] === undefined || endMins > maxEndTimeByDay[d]) {
+          maxEndTimeByDay[d] = endMins;
+        }
+        if (minStartTimeByDay[d] === undefined || startMins < minStartTimeByDay[d]) {
+          minStartTimeByDay[d] = startMins;
+        }
+      });
+    }
+  });
+
+  return { activeSingleDays, activeRoomsByDay, maxEndTimeByDay, minStartTimeByDay };
+}
+
+function sortDaysBySectionCompression(candidateDays, sectionInfo) {
+  if (!sectionInfo || sectionInfo.activeSingleDays.size === 0) return [...candidateDays];
+
+  return [...candidateDays].sort((a, b) => {
+    const cDaysA = getConstituentDays(a);
+    const cDaysB = getConstituentDays(b);
+
+    const countA = cDaysA.filter(d => sectionInfo.activeSingleDays.has(d)).length;
+    const countB = cDaysB.filter(d => sectionInfo.activeSingleDays.has(d)).length;
+
+    const ratioA = countA / cDaysA.length;
+    const ratioB = countB / cDaysB.length;
+
+    if (ratioA !== ratioB) return ratioB - ratioA;
+    if (countA !== countB) return countB - countA;
+
+    return 0;
+  });
+}
+
+function sortTimeslotsBySectionCompression(timeslots, day, sectionInfo) {
+  if (!sectionInfo || sectionInfo.activeSingleDays.size === 0) return [...timeslots];
+
+  const cDays = getConstituentDays(day);
+  let targetAfterMins = 0;
+
+  cDays.forEach(d => {
+    if (sectionInfo.maxEndTimeByDay[d] && sectionInfo.maxEndTimeByDay[d] > targetAfterMins) {
+      targetAfterMins = sectionInfo.maxEndTimeByDay[d];
+    }
+  });
+
+  if (targetAfterMins === 0) return [...timeslots];
+
+  return [...timeslots].sort((a, b) => {
+    const startA = parseTimeToMinutes(a.start);
+    const startB = parseTimeToMinutes(b.start);
+
+    const diffA = startA >= targetAfterMins ? (startA - targetAfterMins) : (10000 + Math.abs(startA - targetAfterMins));
+    const diffB = startB >= targetAfterMins ? (startB - targetAfterMins) : (10000 + Math.abs(startB - targetAfterMins));
+
+    return diffA - diffB;
+  });
+}
+
+function sortRoomsBySectionCompression(candidateRooms, day, sectionInfo) {
+  if (!sectionInfo || !sectionInfo.activeRoomsByDay) return [...candidateRooms];
+
+  const cDays = getConstituentDays(day);
+  const preferredRoomIds = new Set();
+
+  cDays.forEach(d => {
+    if (sectionInfo.activeRoomsByDay[d]) {
+      sectionInfo.activeRoomsByDay[d].forEach(rId => preferredRoomIds.add(rId));
+    }
+  });
+
+  if (preferredRoomIds.size === 0) return [...candidateRooms];
+
+  return [...candidateRooms].sort((a, b) => {
+    const prefA = preferredRoomIds.has(a.id) ? 1 : 0;
+    const prefB = preferredRoomIds.has(b.id) ? 1 : 0;
+    return prefB - prefA;
+  });
+}
+
 // Check if a room name is designated for high school (205-208, or HS101-HS110)
 function isHighSchoolRoom(roomName) {
   if (!roomName) return false;
@@ -14370,11 +14480,14 @@ async function runWaterfallScheduler() {
       });
     }
 
+    const sectionInfo = getSectionScheduleInfo(subject.course, subject.year_level, subject.block_section);
+    const compressedDays = sortDaysBySectionCompression(standardDays, sectionInfo);
+
     for (let teacher of participatingTeachers) {
       const isPartTime = teacher.designation === 'Part-time' || teacher.designation === 'Part-time Teacher';
 
-      // Part-time schedules prefer Saturday and Evening blocks
-      const sortedDays = [...standardDays].sort((a, b) => {
+      // Part-time schedules prefer Saturday and Evening blocks, otherwise use compressed days
+      const sortedDays = [...compressedDays].sort((a, b) => {
         if (isPartTime) {
           if (a === 'S' && b !== 'S') return -1;
           if (b === 'S' && a !== 'S') return 1;
@@ -14382,19 +14495,21 @@ async function runWaterfallScheduler() {
         return 0;
       });
 
-      const sortedSlots = [...filteredSlots].sort((a, b) => {
-        if (isPartTime) {
-          const aIsEve = timesOverlap(a.start, a.end, "16:00", "19:00");
-          const bIsEve = timesOverlap(b.start, b.end, "16:00", "19:00");
-          if (aIsEve && !bIsEve) return -1;
-          if (!aIsEve && bIsEve) return 1;
-        }
-        return 0;
-      });
+      for (let day of sortedDays) {
+        const compressedSlots = sortTimeslotsBySectionCompression(filteredSlots, day, sectionInfo);
+        const sortedSlots = [...compressedSlots].sort((a, b) => {
+          if (isPartTime) {
+            const aIsEve = timesOverlap(a.start, a.end, "16:00", "19:00");
+            const bIsEve = timesOverlap(b.start, b.end, "16:00", "19:00");
+            if (aIsEve && !bIsEve) return -1;
+            if (!aIsEve && bIsEve) return 1;
+          }
+          return 0;
+        });
 
-      for (let room of sortedRooms) {
+        const compressedRooms = sortRoomsBySectionCompression(sortedRooms, day, sectionInfo);
 
-        for (let day of sortedDays) {
+        for (let room of compressedRooms) {
           for (let slot of sortedSlots) {
             
             const candidate = {
@@ -15015,9 +15130,13 @@ async function runSingleTeacherScheduler() {
     let isScheduled = false;
     const conflictsEncountered = new Set();
 
+    const sectionInfo = getSectionScheduleInfo(subject.course, subject.year_level, subject.block_section);
+    const compressedDays = sortDaysBySectionCompression(standardDays, sectionInfo);
+
     dayLoop:
-    for (let day of standardDays) {
-      for (let slot of filteredSlots) {
+    for (let day of compressedDays) {
+      const timeslots = sortTimeslotsBySectionCompression(filteredSlots, day, sectionInfo);
+      for (let slot of timeslots) {
         const candidate = {
           id: 'temp_' + uniqueId(),
           instructor_id: teacher.id,
@@ -15028,7 +15147,8 @@ async function runSingleTeacherScheduler() {
           subject_id: subject.id
         };
 
-        const roomsToTry = getPrioritizedRooms(subject, db.rooms);
+        const rawRoomsToTry = getPrioritizedRooms(subject, db.rooms);
+        const roomsToTry = sortRoomsBySectionCompression(rawRoomsToTry, day, sectionInfo);
         const availableRoom = roomsToTry.find(r => {
           candidate.room_id = r.id;
           const validation = validateSchedule(candidate);
@@ -15164,7 +15284,9 @@ async function runPerSectionScheduler() {
       continue;
     }
 
-    const days = getFilteredStandardDays(subjectDaysSetting);
+    const sectionInfo = getSectionScheduleInfo(course, year, block);
+    const rawDays = getFilteredStandardDays(subjectDaysSetting);
+    const days = sortDaysBySectionCompression(rawDays, sectionInfo);
 
     const targetDuration = rowHours || (sub.lab_hours > 0 ? 3 : (parseFloat(sub.lec_hours) || 1.5));
     const standardTimeSlots = [
@@ -15207,7 +15329,7 @@ async function runPerSectionScheduler() {
       { start: "18:00", end: "19:00", dur: 1 }
     ];
 
-    const timeslots = standardTimeSlots.filter(s => s.dur === targetDuration).concat(standardTimeSlots.filter(s => s.dur !== targetDuration));
+    const rawTimeslots = standardTimeSlots.filter(s => s.dur === targetDuration).concat(standardTimeSlots.filter(s => s.dur !== targetDuration));
 
     let scheduled = false;
 
@@ -15216,6 +15338,7 @@ async function runPerSectionScheduler() {
     teacherLoop:
     for (let teacher of teachersToTry) {
       for (let day of days) {
+        const timeslots = sortTimeslotsBySectionCompression(rawTimeslots, day, sectionInfo);
         for (let slot of timeslots) {
           const candidate = {
             id: 'temp_' + uniqueId(),
@@ -15230,7 +15353,8 @@ async function runPerSectionScheduler() {
             block_section: `${year}${block}`
           };
 
-          const roomsToTry = getPrioritizedRooms(sub, db.rooms);
+          const rawRoomsToTry = getPrioritizedRooms(sub, db.rooms);
+          const roomsToTry = sortRoomsBySectionCompression(rawRoomsToTry, day, sectionInfo);
           const availableRoom = roomsToTry.find(r => {
             candidate.room_id = r.id;
             const validation = validateSchedule(candidate);
