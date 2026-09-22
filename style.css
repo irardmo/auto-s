@@ -151,7 +151,9 @@ body {
   body {
     background-color: #fff !important;
     color: #000 !important;
-    font-size: 11pt !important;
+    font-size: 10pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
   /* Hide standard screen elements completely during printing */
@@ -163,16 +165,13 @@ body {
   #filterForm, 
   .card-header,
   #globalAlerts,
-  .btn,
-  .tab-panel:not(#panel-print),
-  .navbar,
-  .container-fluid > *:not(#panel-print) {
+  .btn {
     display: none !important;
   }
 
-  /* Make sure panel-print occupies full page */
-  #panel-print,
-  #panel-print * {
+  /* Explicitly override Bootstrap .d-none for print-only elements */
+  .d-none.print-only-sheet,
+  .print-only-sheet {
     display: block !important;
   }
 
@@ -186,7 +185,8 @@ body {
     padding: 0 !important;
   }
 
-  #printout-container {
+  #printout-container,
+  #print-sheet {
     width: 100% !important;
     min-height: auto !important;
     box-shadow: none !important;

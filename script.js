@@ -13305,19 +13305,26 @@ function renderWaterfallTeachers() {
 function populatePrintTeachers() {
   const printSel = document.getElementById('print-teacher-select');
   if (!printSel) return;
+  const currentVal = printSel.value;
   printSel.innerHTML = '';
   db.instructors.forEach(t => {
     printSel.innerHTML += `<option value="${t.id}">${t.name} [${t.designation}]</option>`;
   });
+  if (currentVal && db.instructors.some(t => t.id === currentVal)) {
+    printSel.value = currentVal;
+  }
+  renderOfficialPrintout();
 }
 
 // Update UI view renderings
 function renderAllViews() {
   populateFormSelects();
+  populatePrintTeachers();
   renderSchedulesTable();
   renderInstructorsTable();
   renderSubjectsTable();
   renderRoomsTable();
+  renderOfficialPrintout();
 }
 
 // RENDER SCHEDULE RECORDS TABLE (With Custom Filter Logic)
