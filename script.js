@@ -12631,8 +12631,11 @@ function sortTimeslotsBySectionCompression(timeslots, day, sectionInfo) {
   });
 }
 
-function sortRoomsBySectionCompression(candidateRooms, day, sectionInfo) {
+function sortRoomsBySectionCompression(candidateRooms, day, sectionInfo, subject = null) {
   if (!sectionInfo || !sectionInfo.activeRoomsByDay) return [...candidateRooms];
+
+  const isComp = subject ? isComputerSubject(subject) : false;
+  const isCrim = subject ? isCriminologySubject(subject) : false;
 
   const cDays = getConstituentDays(day);
   const preferredRoomIds = new Set();
@@ -12646,6 +12649,24 @@ function sortRoomsBySectionCompression(candidateRooms, day, sectionInfo) {
   if (preferredRoomIds.size === 0) return [...candidateRooms];
 
   return [...candidateRooms].sort((a, b) => {
+    const aName = (a.name || '').toUpperCase();
+    const bName = (b.name || '').toUpperCase();
+    const aIsComLab = aName.includes('COMLAB');
+    const bIsComLab = bName.includes('COMLAB');
+    const aIsCrimLab = aName.includes('CRIMLAB');
+    const bIsCrimLab = bName.includes('CRIMLAB');
+
+    // COMLAB always takes priority for computer subjects
+    if (isComp) {
+      if (aIsComLab && !bIsComLab) return -1;
+      if (!aIsComLab && bIsComLab) return 1;
+    }
+    // CRIMLAB always takes priority for criminology subjects
+    if (isCrim) {
+      if (aIsCrimLab && !bIsCrimLab) return -1;
+      if (!aIsCrimLab && bIsCrimLab) return 1;
+    }
+
     const prefA = preferredRoomIds.has(a.id) ? 1 : 0;
     const prefB = preferredRoomIds.has(b.id) ? 1 : 0;
     return prefB - prefA;
@@ -12688,6 +12709,7 @@ function isComputerSubject(subject) {
 
   const exactComputerSubjects = [
     'COMPUTER PROGRAMMING 1',
+    'INTRODUCTION TO COMPUTING',
     'INFORMATION TECHNOLOGY FUNDAMENTALS',
     'IT FUNDAMENTALS',
     'COMPUTER PROGRAMMING 2',
@@ -12705,11 +12727,14 @@ function isComputerSubject(subject) {
     'NETWORKING 1',
     'INTRO TO HUMAN-COMPUTER INTERACTION',
     'INTRODUCTION TO HUMAN AND COMPUTER INTERACTION',
+    'INTRODUCTION TO HUMAN-COMPUTER INTERACTION',
     'SYSTEM ADMIN & MAINTENANCE',
     'SYSTEM ADMINISTRATION AND MAINTENANCE',
     'WEB SYSTEMS AND TECHNOLOGY',
+    'WEB SYSTEMS AND TECHNOLOGIES',
     'INTEGRATIVE PROGRAMMING & TECHNOLOGIES',
     'INTEGRATIVE PROGRAMMING AND TECHNOLOGY',
+    'INTEGRATIVE PROGRAMMING AND TECHNOLOGIES',
     'NETWORKING 2',
     'INFO ASSURANCE AND SECURITY 2',
     'INFORMATION ASSURANCE AND SECURITY 2',
@@ -12722,7 +12747,11 @@ function isComputerSubject(subject) {
     'HUMAN COMPUTER INTERACTION 2'
   ];
 
-  return exactComputerSubjects.some(t => title.includes(t) || code.includes(t));
+  if (exactComputerSubjects.some(t => title.includes(t) || code.includes(t))) return true;
+
+  if (code.startsWith('CC ') || code.startsWith('IT ') || code.startsWith('ITE ')) return true;
+
+  return false;
 }
 
 // Check if subject is criminology lab related (STRICTLY for CRIMLAB assignment)
@@ -12732,14 +12761,21 @@ function isCriminologySubject(subject) {
   const title = (subject.descriptive_title || subject.title_and_code || '').toUpperCase();
   const course = (subject.course || '').toUpperCase();
 
-  const exactCrimLabCodes = [
+  const exactCrimLabSubjects = [
+    'FORENSIC 141', 'FORENTICS 141', 'FORENSICS 141',
+    'ADGE',
+    'FORENSIC 142', 'FORENTICS 142', 'FORENSICS 142',
+    'FORENSIC 143', 'FORENTICS 143', 'FORENSICS 143',
+    'FORENSIC 114', 'FORENTICS 114', 'FORENSICS 114',
+    'FORENSIC 146', 'FORENTICS 146', 'FORENSICS 146',
+    'FORENSIC 115', 'FORENTICS 115', 'FORENSICS 115',
     'HPC 121', 'HMPE 131', 'HMPE 132', 'HMPE 3', 'HPC 124',
     'HMPE 134', 'HMPE 135', 'HPC 126', 'HPC 127'
   ];
 
-  if (exactCrimLabCodes.some(c => code.includes(c) || title.includes(c))) return true;
+  if (exactCrimLabSubjects.some(c => code.includes(c) || title.includes(c))) return true;
 
-  if (course === 'BSCRIM' && (subject.lab_hours > 0 || code.startsWith('FORENSIC'))) return true;
+  if (course === 'BSCRIM' && (subject.lab_hours > 0 || code.includes('FORENSIC') || code.includes('FORENTIC') || title.includes('FORENSIC') || title.includes('FORENTIC') || title.includes('ADGE'))) return true;
 
   return false;
 }
@@ -14507,7 +14543,7 @@ async function runWaterfallScheduler() {
           return 0;
         });
 
-        const compressedRooms = sortRoomsBySectionCompression(sortedRooms, day, sectionInfo);
+        const compressedRooms = sortRoomsBySectionCompression(sortedRooms, day, sectionInfo, subject);
 
         for (let room of compressedRooms) {
           for (let slot of sortedSlots) {
@@ -15148,7 +15184,7 @@ async function runSingleTeacherScheduler() {
         };
 
         const rawRoomsToTry = getPrioritizedRooms(subject, db.rooms);
-        const roomsToTry = sortRoomsBySectionCompression(rawRoomsToTry, day, sectionInfo);
+        const roomsToTry = sortRoomsBySectionCompression(rawRoomsToTry, day, sectionInfo, subject);
         const availableRoom = roomsToTry.find(r => {
           candidate.room_id = r.id;
           const validation = validateSchedule(candidate);
@@ -15354,7 +15390,7 @@ async function runPerSectionScheduler() {
           };
 
           const rawRoomsToTry = getPrioritizedRooms(sub, db.rooms);
-          const roomsToTry = sortRoomsBySectionCompression(rawRoomsToTry, day, sectionInfo);
+          const roomsToTry = sortRoomsBySectionCompression(rawRoomsToTry, day, sectionInfo, sub);
           const availableRoom = roomsToTry.find(r => {
             candidate.room_id = r.id;
             const validation = validateSchedule(candidate);
