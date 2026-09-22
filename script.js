@@ -14468,7 +14468,7 @@ async function runWaterfallScheduler() {
 
     consoleEl.innerHTML += `Scheduling Section: <strong>${subject.course} ${subject.block_section}</strong>...<br>`;
 
-    const filteredSlots = standardTimeSlots.filter(s => s.dur === targetDuration).concat(standardTimeSlots.filter(s => s.dur !== targetDuration));
+    const filteredSlots = standardTimeSlots.filter(s => s.dur === targetDuration);
 
     // Sort and filter rooms using getPrioritizedRooms based on subject type and preferred room
     let sortedRooms = getPrioritizedRooms(subject, db.rooms);
@@ -15113,7 +15113,7 @@ async function runSingleTeacherScheduler() {
     { start: "18:00", end: "19:00", dur: 1 }
   ];
 
-  const filteredSlots = standardTimeSlots.filter(s => s.dur === targetDuration).concat(standardTimeSlots.filter(s => s.dur !== targetDuration));
+  const filteredSlots = standardTimeSlots.filter(s => s.dur === targetDuration);
   const standardDays = getFilteredStandardDays(daysSetting);
 
   let scheduledCount = 0;
@@ -15329,7 +15329,7 @@ async function runPerSectionScheduler() {
       { start: "18:00", end: "19:00", dur: 1 }
     ];
 
-    const rawTimeslots = standardTimeSlots.filter(s => s.dur === targetDuration).concat(standardTimeSlots.filter(s => s.dur !== targetDuration));
+    const rawTimeslots = standardTimeSlots.filter(s => s.dur === targetDuration);
 
     let scheduled = false;
 
