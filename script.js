@@ -12397,7 +12397,12 @@ async function loadDatabase() {
   try {
     const response = await fetch(`${API_URL}?action=get_all`);
     const result = await response.json();
-    if (result && result.status === 'success' && result.subjects && result.subjects.length > 0) {
+    if (result && result.status === 'success' && (
+        (result.instructors && result.instructors.length > 0) ||
+        (result.rooms && result.rooms.length > 0) ||
+        (result.subjects && result.subjects.length > 0) ||
+        (result.schedules && result.schedules.length > 0)
+    )) {
       db.instructors = (result.instructors || []).map(i => ({
         ...i,
         max_units: parseInt(i.max_units, 10)
@@ -12409,9 +12414,13 @@ async function loadDatabase() {
         units: parseInt(s.units, 10),
         lec_hours: parseInt(s.lec_hours, 10),
         lab_hours: parseInt(s.lab_hours, 10),
-        is_major: parseInt(s.is_major || 0, 10)
+        is_major: parseInt(s.is_major || 0, 10),
+        block_section: s.block_section || ''
       }));
-      db.schedules = result.schedules || [];
+      db.schedules = (result.schedules || []).map(sch => ({
+        ...sch,
+        year_level: parseInt(sch.year_level || 0, 10)
+      }));
       
       localStorage.setItem('sibt_scheduling_db', JSON.stringify(db));
       console.log("Database successfully synced with XAMPP MySQL backend.");
@@ -12427,7 +12436,12 @@ async function loadDatabase() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.subjects && parsed.subjects.length > 0) {
+        if (
+          (parsed.instructors && parsed.instructors.length > 0) ||
+          (parsed.rooms && parsed.rooms.length > 0) ||
+          (parsed.subjects && parsed.subjects.length > 0) ||
+          (parsed.schedules && parsed.schedules.length > 0)
+        ) {
           db = parsed;
           db.instructors = (db.instructors || []).map(i => ({ ...i, max_units: parseInt(i.max_units, 10) }));
           db.subjects = (db.subjects || []).map(s => ({
@@ -12436,7 +12450,12 @@ async function loadDatabase() {
             units: parseInt(s.units, 10),
             lec_hours: parseInt(s.lec_hours, 10),
             lab_hours: parseInt(s.lab_hours, 10),
-            is_major: parseInt(s.is_major || 0, 10)
+            is_major: parseInt(s.is_major || 0, 10),
+            block_section: s.block_section || ''
+          }));
+          db.schedules = (db.schedules || []).map(sch => ({
+            ...sch,
+            year_level: parseInt(sch.year_level || 0, 10)
           }));
           loadedSuccessfully = true;
         }
@@ -12446,8 +12465,12 @@ async function loadDatabase() {
     }
   }
 
-  // Final fallback: Seed demoData if still empty
-  if (!db.subjects || db.subjects.length === 0) {
+  // Final fallback: Seed demoData if still empty across all collections
+  if (
+    (!db.instructors || db.instructors.length === 0) &&
+    (!db.rooms || db.rooms.length === 0) &&
+    (!db.subjects || db.subjects.length === 0)
+  ) {
     db = JSON.parse(JSON.stringify(demoData));
     localStorage.setItem('sibt_scheduling_db', JSON.stringify(db));
   }

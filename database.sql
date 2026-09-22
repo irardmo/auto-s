@@ -270,6 +270,9 @@ CREATE TABLE IF NOT EXISTS schedules (
     time_start VARCHAR(10) NOT NULL,
     time_end VARCHAR(10) NOT NULL,
     subject_id VARCHAR(50),
+    course VARCHAR(100) DEFAULT '',
+    year_level INT DEFAULT 0,
+    block_section VARCHAR(50) DEFAULT '',
     FOREIGN KEY (instructor_id) REFERENCES instructors(id) ON DELETE CASCADE,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -1336,6 +1339,6 @@ INSERT IGNORE INTO bsca_subject_new (id, title_and_code, course, year_level, sem
 ('bsca_n49', '6(600) - NONE', 'BSCA', 4, 1, 3, 3, 0, 1, 'new'),
 ('bsca_n50', 'TM 8 - Competencies Assessment in Tariff Management', 'BSCA', 4, 2, 5, 5, 0, 1, 'new');
 
-INSERT IGNORE INTO schedules (id, instructor_id, room_id, day, time_start, time_end, subject_id) VALUES
-('sch1', 't1', 'r2', 'W', '08:00', '11:00', 's1'),
-('sch2', 't2', 'r1', 'M', '13:00', '16:00', 's2');
+INSERT IGNORE INTO schedules (id, instructor_id, room_id, day, time_start, time_end, subject_id, course, year_level, block_section) VALUES
+('sch1', 't1', 'r2', 'W', '08:00', '11:00', 'bsca_o1', 'BSCA', 1, '1A'),
+('sch2', 't2', 'r1', 'M', '13:00', '16:00', 'bsca_o2', 'BSCA', 1, '1A');
