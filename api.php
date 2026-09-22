@@ -17,6 +17,8 @@ $db_name = "sibt_scheduling";
 $username = "root";
 $password = "";
 
+$conn = null;
+
 $courseTables = [
     'bsit_subject_new', 'bsit_subject_old',
     'beed_subject_new', 'beed_subject_old',
@@ -70,8 +72,14 @@ try {
             lec_hours INT NOT NULL DEFAULT 0,
             lab_hours INT NOT NULL DEFAULT 0,
             is_major INT NOT NULL DEFAULT 0,
-            curriculum_type VARCHAR(20) DEFAULT 'new'
+            curriculum_type VARCHAR(20) DEFAULT 'new',
+            block_section VARCHAR(50) DEFAULT ''
         ) ENGINE=InnoDB;");
+
+        // Migration check for existing databases
+        try {
+            $conn->exec("ALTER TABLE {$tbl} ADD COLUMN block_section VARCHAR(50) DEFAULT ''");
+        } catch (Exception $e) {}
     }
 
     // Create Schedules
@@ -83,9 +91,23 @@ try {
         time_start VARCHAR(10) NOT NULL,
         time_end VARCHAR(10) NOT NULL,
         subject_id VARCHAR(50),
+        course VARCHAR(100) DEFAULT '',
+        year_level INT DEFAULT 0,
+        block_section VARCHAR(50) DEFAULT '',
         FOREIGN KEY (instructor_id) REFERENCES instructors(id) ON DELETE CASCADE,
         FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;");
+
+    // Migration checks for schedules table in existing databases
+    try {
+        $conn->exec("ALTER TABLE schedules ADD COLUMN course VARCHAR(100) DEFAULT ''");
+    } catch (Exception $e) {}
+    try {
+        $conn->exec("ALTER TABLE schedules ADD COLUMN year_level INT DEFAULT 0");
+    } catch (Exception $e) {}
+    try {
+        $conn->exec("ALTER TABLE schedules ADD COLUMN block_section VARCHAR(50) DEFAULT ''");
+    } catch (Exception $e) {}
 
 } catch (PDOException $e) {
     // MySQL connection error fallback
@@ -164,23 +186,29 @@ switch ($action) {
                         if (!in_array($targetTbl, $courseTables)) {
                             $targetTbl = "bsit_subject_new";
                         }
-                        $stmt = $conn->prepare("INSERT INTO {$targetTbl} (id, title_and_code, course, year_level, semester, units, lec_hours, lab_hours, is_major, curriculum_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt = $conn->prepare("INSERT INTO {$targetTbl} (id, title_and_code, course, year_level, semester, units, lec_hours, lab_hours, is_major, curriculum_type, block_section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                         $stmt->execute([
                             $sub['id'], $sub['title_and_code'], $sub['course'], 
                             $sub['year_level'], $sub['semester'] ?? 1,
                             $sub['units'], $sub['lec_hours'], $sub['lab_hours'],
                             $sub['is_major'] ?? 0,
-                            $sub['curriculum_type'] ?? 'new'
+                            $sub['curriculum_type'] ?? 'new',
+                            $sub['block_section'] ?? ''
                         ]);
                     }
                 }
 
                 if (isset($data['schedules']) && is_array($data['schedules'])) {
-                    $stmt = $conn->prepare("INSERT INTO schedules (id, instructor_id, room_id, day, time_start, time_end, subject_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt = $conn->prepare("INSERT INTO schedules (id, instructor_id, room_id, day, time_start, time_end, subject_id, course, year_level, block_section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     foreach ($data['schedules'] as $sch) {
+                        $insId = !empty($sch['instructor_id']) ? $sch['instructor_id'] : null;
+                        $rmId = !empty($sch['room_id']) ? $sch['room_id'] : null;
                         $stmt->execute([
-                            $sch['id'], $sch['instructor_id'], $sch['room_id'], 
-                            $sch['day'], $sch['time_start'], $sch['time_end'], $sch['subject_id']
+                            $sch['id'], $insId, $rmId,
+                            $sch['day'], $sch['time_start'], $sch['time_end'], $sch['subject_id'],
+                            $sch['course'] ?? '',
+                            $sch['year_level'] ?? 0,
+                            $sch['block_section'] ?? ''
                         ]);
                     }
                 }
