@@ -10751,6 +10751,7 @@ async function loadDatabase() {
     }
   }
   
+  populateFormSelects();
   updateStats();
   renderAllViews();
 }
@@ -11245,10 +11246,12 @@ function populateFormSelects() {
 
   // Room selector
   const roomSel = document.getElementById('input-room');
-  roomSel.innerHTML = '<option value="">Select Room...</option>';
-  db.rooms.forEach(r => {
-    roomSel.innerHTML += `<option value="${r.id}">${r.name} (${r.room_type})</option>`;
-  });
+  if (roomSel) {
+    roomSel.innerHTML = '<option value="">Select Room...</option>';
+    db.rooms.forEach(r => {
+      roomSel.innerHTML += `<option value="${r.id}">${r.name} (${r.room_type})</option>`;
+    });
+  }
 
   // Subject selector (decoupled unique subject title list)
   const subSel = document.getElementById('input-subject');
@@ -11266,26 +11269,32 @@ function populateFormSelects() {
 
   // Filters selectors on the schedule board page
   const filterTeacher = document.getElementById('filter-teacher');
-  filterTeacher.innerHTML = '<option value="">All Teachers</option>';
-  db.instructors.forEach(t => {
-    filterTeacher.innerHTML += `<option value="${t.id}">${t.name}</option>`;
-  });
+  if (filterTeacher) {
+    filterTeacher.innerHTML = '<option value="">All Teachers</option>';
+    db.instructors.forEach(t => {
+      filterTeacher.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+    });
+  }
 
   // Course Selector filter
   const filterCourse = document.getElementById('filter-course');
-  filterCourse.innerHTML = '<option value="">All Courses</option>';
-  const courses = [...new Set(db.subjects.map(s => s.course))];
-  courses.forEach(c => {
-    filterCourse.innerHTML += `<option value="${c}">${c}</option>`;
-  });
+  if (filterCourse) {
+    filterCourse.innerHTML = '<option value="">All Courses</option>';
+    const courses = [...new Set(db.subjects.map(s => s.course))];
+    courses.forEach(c => {
+      filterCourse.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+  }
 
   // Blocks filter
   const filterBlock = document.getElementById('filter-block');
-  filterBlock.innerHTML = '<option value="">All Blocks</option>';
-  const blocks = [...new Set(db.subjects.map(s => s.block_section).filter(Boolean))];
-  blocks.forEach(b => {
-    filterBlock.innerHTML += `<option value="${b}">${b}</option>`;
-  });
+  if (filterBlock) {
+    filterBlock.innerHTML = '<option value="">All Blocks</option>';
+    const blocks = [...new Set(db.subjects.map(s => s.block_section).filter(Boolean))];
+    blocks.forEach(b => {
+      filterBlock.innerHTML += `<option value="${b}">${b}</option>`;
+    });
+  }
 
   // Subject filter
   const filterSubject = document.getElementById('filter-subject');
@@ -11723,7 +11732,9 @@ function renderRoomsTable() {
 // --- FORM ADD / EDIT / DELETE ACTIONS ---
 
 // SCHEDULE
-document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+const schedFormEl = document.getElementById('scheduleForm');
+if (schedFormEl) {
+  schedFormEl.addEventListener('submit', function(e) {
   e.preventDefault();
   
   const id = document.getElementById('edit-id').value;
@@ -11774,7 +11785,8 @@ document.getElementById('scheduleForm').addEventListener('submit', function(e) {
   saveDatabase();
   clearForm();
   switchTab('board');
-});
+  });
+}
 
 function editSchedule(id) {
   const sch = db.schedules.find(s => s.id === id);
@@ -13477,8 +13489,8 @@ async function runPerSectionScheduler() {
 }
 
 // Initialize on document load
-document.addEventListener('DOMContentLoaded', () => {
-  loadDatabase();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDatabase();
 
   // Pre-load logic and first rendering
   populateFormSelects();
