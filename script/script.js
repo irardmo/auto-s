@@ -10751,6 +10751,7 @@ async function loadDatabase() {
     }
   }
   
+  populateFormSelects();
   updateStats();
   renderAllViews();
 }
@@ -10943,14 +10944,14 @@ function validateSchedule(candidate) {
       if (timesOverlap(existing.time_start, existing.time_end, candidate.time_start, candidate.time_end)) {
         
         // Conflict 1: Instructor Double Booking
-        if (existing.instructor_id === candidate.instructor_id) {
+        if (candidate.instructor_id && candidate.instructor_id !== 'unassigned' && existing.instructor_id === candidate.instructor_id) {
           const t = db.instructors.find(i => i.id === candidate.instructor_id);
           const teacherName = t ? t.name : 'Teacher';
           errors.push(`Teacher Conflict: ${teacherName} is already scheduled on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
         }
 
         // Conflict 2: Room Double Booking
-        if (existing.room_id === candidate.room_id) {
+        if (candidate.room_id && existing.room_id === candidate.room_id) {
           const r = db.rooms.find(rm => rm.id === candidate.room_id);
           const roomName = r ? r.name : 'Room';
           errors.push(`Room Conflict: ${roomName} is already occupied on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
@@ -10965,6 +10966,13 @@ function validateSchedule(candidate) {
               (existingSubject.block_section || '') === (subject.block_section || '')) {
             errors.push(`Section/Block Conflict: Section ${subject.course} ${subject.year_level}${subject.block_section} already has a class on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
           }
+        }
+
+        // Conflict 4: Subject Double Booking
+        if (candidate.subject_id && existing.subject_id === candidate.subject_id) {
+          const subObj = db.subjects.find(s => s.id === candidate.subject_id);
+          const subTitle = subObj ? subObj.title_and_code : 'Subject';
+          errors.push(`Subject Conflict: Subject ${subTitle} is already scheduled on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
         }
       }
     }
@@ -11245,10 +11253,12 @@ function populateFormSelects() {
 
   // Room selector
   const roomSel = document.getElementById('input-room');
-  roomSel.innerHTML = '<option value="">Select Room...</option>';
-  db.rooms.forEach(r => {
-    roomSel.innerHTML += `<option value="${r.id}">${r.name} (${r.room_type})</option>`;
-  });
+  if (roomSel) {
+    roomSel.innerHTML = '<option value="">Select Room...</option>';
+    db.rooms.forEach(r => {
+      roomSel.innerHTML += `<option value="${r.id}">${r.name} (${r.room_type})</option>`;
+    });
+  }
 
   // Subject selector (decoupled unique subject title list)
   const subSel = document.getElementById('input-subject');
@@ -11266,26 +11276,32 @@ function populateFormSelects() {
 
   // Filters selectors on the schedule board page
   const filterTeacher = document.getElementById('filter-teacher');
-  filterTeacher.innerHTML = '<option value="">All Teachers</option>';
-  db.instructors.forEach(t => {
-    filterTeacher.innerHTML += `<option value="${t.id}">${t.name}</option>`;
-  });
+  if (filterTeacher) {
+    filterTeacher.innerHTML = '<option value="">All Teachers</option>';
+    db.instructors.forEach(t => {
+      filterTeacher.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+    });
+  }
 
   // Course Selector filter
   const filterCourse = document.getElementById('filter-course');
-  filterCourse.innerHTML = '<option value="">All Courses</option>';
-  const courses = [...new Set(db.subjects.map(s => s.course))];
-  courses.forEach(c => {
-    filterCourse.innerHTML += `<option value="${c}">${c}</option>`;
-  });
+  if (filterCourse) {
+    filterCourse.innerHTML = '<option value="">All Courses</option>';
+    const courses = [...new Set(db.subjects.map(s => s.course))];
+    courses.forEach(c => {
+      filterCourse.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+  }
 
   // Blocks filter
   const filterBlock = document.getElementById('filter-block');
-  filterBlock.innerHTML = '<option value="">All Blocks</option>';
-  const blocks = [...new Set(db.subjects.map(s => s.block_section).filter(Boolean))];
-  blocks.forEach(b => {
-    filterBlock.innerHTML += `<option value="${b}">${b}</option>`;
-  });
+  if (filterBlock) {
+    filterBlock.innerHTML = '<option value="">All Blocks</option>';
+    const blocks = [...new Set(db.subjects.map(s => s.block_section).filter(Boolean))];
+    blocks.forEach(b => {
+      filterBlock.innerHTML += `<option value="${b}">${b}</option>`;
+    });
+  }
 
   // Subject filter
   const filterSubject = document.getElementById('filter-subject');
@@ -11723,7 +11739,9 @@ function renderRoomsTable() {
 // --- FORM ADD / EDIT / DELETE ACTIONS ---
 
 // SCHEDULE
-document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+const schedFormEl = document.getElementById('scheduleForm');
+if (schedFormEl) {
+  schedFormEl.addEventListener('submit', function(e) {
   e.preventDefault();
   
   const id = document.getElementById('edit-id').value;
@@ -11774,7 +11792,8 @@ document.getElementById('scheduleForm').addEventListener('submit', function(e) {
   saveDatabase();
   clearForm();
   switchTab('board');
-});
+  });
+}
 
 function editSchedule(id) {
   const sch = db.schedules.find(s => s.id === id);
@@ -12760,9 +12779,7 @@ function renderOfficialPrintout() {
     <!-- Top SIBT Official Header logo -->
     <div class="d-flex align-items-center mb-4 border-bottom pb-3">
       <div class="me-3">
-        <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center text-white text-center" style="width: 70px; height: 70px; font-size: 8px; font-weight: bold;">
-          SIBT LOGO
-        </div>
+        <img src="image/android-chrome-192x192.png" alt="SIBT Logo" class="rounded-circle" style="width: 70px; height: 70px; object-fit: contain;">
       </div>
       <div class="flex-grow-1">
         <h4 class="official-title mb-1 text-center" style="font-size: 1.25rem;">SOUTHWESTERN INSTITUTE OF BUSINESS AND TECHNOLOGY, INC.</h4>
@@ -13050,7 +13067,7 @@ function loadSectionSubjects() {
   }
 
   // Teacher dropdown options
-  let teacherOpts = '<option value="" disabled selected>Select Instructor...</option>';
+  let teacherOpts = '<option value="unassigned" selected>Unassigned / New Applying Teacher</option>';
   db.instructors.forEach(t => {
     teacherOpts += `<option value="${t.id}">${t.name} (${t.designation})</option>`;
   });
@@ -13303,16 +13320,7 @@ async function runPerSectionScheduler() {
     return;
   }
 
-  // Validate that all subjects have an assigned instructor selected
-  let missingInstructor = false;
-  selects.forEach(sel => {
-    if (!sel.value) missingInstructor = true;
-  });
-
-  if (missingInstructor) {
-    showToast("Please select an instructor for all subjects in the section before generating!", "danger");
-    return;
-  }
+  // Allows unassigned/new applying teachers to generate section schedules without forcing instructor selection
 
   const logContainer = document.getElementById('autoSchedulerResults');
   const consoleEl = document.getElementById('schedulerConsole');
@@ -13340,17 +13348,13 @@ async function runPerSectionScheduler() {
     sub.block_section = block;
 
     let teachersToTry = [];
-    if (assignedTeacherId) {
+    if (assignedTeacherId && assignedTeacherId !== 'unassigned') {
       const teacherObj = db.instructors.find(t => t.id === assignedTeacherId);
       if (teacherObj) teachersToTry = [teacherObj];
-    } else {
-      teachersToTry = [...db.instructors];
     }
 
     if (teachersToTry.length === 0) {
-      consoleEl.innerHTML += `<span class="text-danger">✖ Failed:</span> No instructors available for ${sub.title_and_code}.<br>`;
-      unscheduledCount++;
-      continue;
+      teachersToTry = [{ id: 'unassigned', name: 'Unassigned / New Applying Teacher', designation: 'Regular Teacher', max_units: 99 }];
     }
 
     const days = getFilteredStandardDays(subjectDaysSetting);
@@ -13479,8 +13483,8 @@ async function runPerSectionScheduler() {
 }
 
 // Initialize on document load
-document.addEventListener('DOMContentLoaded', () => {
-  loadDatabase();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadDatabase();
 
   // Pre-load logic and first rendering
   populateFormSelects();
