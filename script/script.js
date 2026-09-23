@@ -10944,14 +10944,14 @@ function validateSchedule(candidate) {
       if (timesOverlap(existing.time_start, existing.time_end, candidate.time_start, candidate.time_end)) {
         
         // Conflict 1: Instructor Double Booking
-        if (existing.instructor_id === candidate.instructor_id) {
+        if (candidate.instructor_id && candidate.instructor_id !== 'unassigned' && existing.instructor_id === candidate.instructor_id) {
           const t = db.instructors.find(i => i.id === candidate.instructor_id);
           const teacherName = t ? t.name : 'Teacher';
           errors.push(`Teacher Conflict: ${teacherName} is already scheduled on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
         }
 
         // Conflict 2: Room Double Booking
-        if (existing.room_id === candidate.room_id) {
+        if (candidate.room_id && existing.room_id === candidate.room_id) {
           const r = db.rooms.find(rm => rm.id === candidate.room_id);
           const roomName = r ? r.name : 'Room';
           errors.push(`Room Conflict: ${roomName} is already occupied on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
@@ -10966,6 +10966,13 @@ function validateSchedule(candidate) {
               (existingSubject.block_section || '') === (subject.block_section || '')) {
             errors.push(`Section/Block Conflict: Section ${subject.course} ${subject.year_level}${subject.block_section} already has a class on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
           }
+        }
+
+        // Conflict 4: Subject Double Booking
+        if (candidate.subject_id && existing.subject_id === candidate.subject_id) {
+          const subObj = db.subjects.find(s => s.id === candidate.subject_id);
+          const subTitle = subObj ? subObj.title_and_code : 'Subject';
+          errors.push(`Subject Conflict: Subject ${subTitle} is already scheduled on ${existing.day} at ${existing.time_start} - ${existing.time_end}.`);
         }
       }
     }
@@ -13060,7 +13067,7 @@ function loadSectionSubjects() {
   }
 
   // Teacher dropdown options
-  let teacherOpts = '<option value="" disabled selected>Select Instructor...</option>';
+  let teacherOpts = '<option value="unassigned" selected>Unassigned / New Applying Teacher</option>';
   db.instructors.forEach(t => {
     teacherOpts += `<option value="${t.id}">${t.name} (${t.designation})</option>`;
   });
@@ -13313,16 +13320,7 @@ async function runPerSectionScheduler() {
     return;
   }
 
-  // Validate that all subjects have an assigned instructor selected
-  let missingInstructor = false;
-  selects.forEach(sel => {
-    if (!sel.value) missingInstructor = true;
-  });
-
-  if (missingInstructor) {
-    showToast("Please select an instructor for all subjects in the section before generating!", "danger");
-    return;
-  }
+  // Allows unassigned/new applying teachers to generate section schedules without forcing instructor selection
 
   const logContainer = document.getElementById('autoSchedulerResults');
   const consoleEl = document.getElementById('schedulerConsole');
@@ -13350,17 +13348,13 @@ async function runPerSectionScheduler() {
     sub.block_section = block;
 
     let teachersToTry = [];
-    if (assignedTeacherId) {
+    if (assignedTeacherId && assignedTeacherId !== 'unassigned') {
       const teacherObj = db.instructors.find(t => t.id === assignedTeacherId);
       if (teacherObj) teachersToTry = [teacherObj];
-    } else {
-      teachersToTry = [...db.instructors];
     }
 
     if (teachersToTry.length === 0) {
-      consoleEl.innerHTML += `<span class="text-danger">✖ Failed:</span> No instructors available for ${sub.title_and_code}.<br>`;
-      unscheduledCount++;
-      continue;
+      teachersToTry = [{ id: 'unassigned', name: 'Unassigned / New Applying Teacher', designation: 'Regular Teacher', max_units: 99 }];
     }
 
     const days = getFilteredStandardDays(subjectDaysSetting);
