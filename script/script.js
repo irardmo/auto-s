@@ -12760,9 +12760,7 @@ function renderOfficialPrintout() {
     <!-- Top SIBT Official Header logo -->
     <div class="d-flex align-items-center mb-4 border-bottom pb-3">
       <div class="me-3">
-        <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center text-white text-center" style="width: 70px; height: 70px; font-size: 8px; font-weight: bold;">
-          SIBT LOGO
-        </div>
+        <img src="image/android-chrome-192x192.png" alt="SIBT Logo" class="rounded-circle" style="width: 70px; height: 70px; object-fit: contain;">
       </div>
       <div class="flex-grow-1">
         <h4 class="official-title mb-1 text-center" style="font-size: 1.25rem;">SOUTHWESTERN INSTITUTE OF BUSINESS AND TECHNOLOGY, INC.</h4>
